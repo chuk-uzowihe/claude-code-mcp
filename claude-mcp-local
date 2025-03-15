@@ -8,26 +8,43 @@ export CLAUDE_MEMORY_PATH="$HOME/dev/claude-code/data/memory/memory.json"
 export CLAUDE_SQLITE_PATH="$HOME/dev/claude-code/data/sqlite/test.db"
 export TEMPLATES_PATH="$HOME/dev/claude-code/mcp-servers/docker/templates"
 
+# Function to check if environment variable is set
+check_env_var() {
+  local var_name=$1
+  local var_value=${!var_name}
+  
+  if [ -z "$var_value" ]; then
+    echo "⚠️ Warning: $var_name is not set. Skipping related MCP server."
+    return 1
+  fi
+  return 0
+}
+
 # First remove any existing servers with the same names
-claude mcp remove brave-search
-claude mcp remove github
-claude mcp remove memory 
-claude mcp remove filesystem
-claude mcp remove fetch
-claude mcp remove e2b
-claude mcp remove linear
-claude mcp remove slack
-claude mcp remove sqlite
-claude mcp remove research-papers
-claude mcp remove docker
-claude mcp remove mcp-test
+# Redirect stderr to /dev/null to suppress "No local MCP server found" errors
+claude mcp remove brave-search 2>/dev/null
+claude mcp remove github 2>/dev/null
+claude mcp remove memory 2>/dev/null
+claude mcp remove filesystem 2>/dev/null
+claude mcp remove fetch 2>/dev/null
+claude mcp remove e2b 2>/dev/null
+claude mcp remove linear 2>/dev/null
+claude mcp remove slack 2>/dev/null
+claude mcp remove sqlite 2>/dev/null
+claude mcp remove research-papers 2>/dev/null
+claude mcp remove docker 2>/dev/null
+claude mcp remove mcp-test 2>/dev/null
 
 # Local TypeScript/JavaScript MCP servers
-echo "Registering brave-search server..."
-claude mcp add brave-search -e BRAVE_API_KEY=$BRAVE_API_KEY -- node $MCP_LOCAL_PATH/brave-search/dist/index.js
+if check_env_var "BRAVE_API_KEY"; then
+  echo "Registering brave-search server..."
+  claude mcp add brave-search -e BRAVE_API_KEY=$BRAVE_API_KEY -- node $MCP_LOCAL_PATH/brave-search/dist/index.js
+fi
 
-echo "Registering github server..."
-claude mcp add github -e GITHUB_PERSONAL_ACCESS_TOKEN=$GITHUB_TOKEN -- node $MCP_LOCAL_PATH/github/dist/index.js
+if check_env_var "GITHUB_TOKEN"; then
+  echo "Registering github server..."
+  claude mcp add github -e GITHUB_PERSONAL_ACCESS_TOKEN=$GITHUB_TOKEN -- node $MCP_LOCAL_PATH/github/dist/index.js
+fi
 
 # echo "Registering memory server..."
 # claude mcp add memory -e MEMORY_FILE_PATH=$CLAUDE_MEMORY_PATH -- node $MCP_LOCAL_PATH/memory/dist/index.js
@@ -35,14 +52,20 @@ claude mcp add github -e GITHUB_PERSONAL_ACCESS_TOKEN=$GITHUB_TOKEN -- node $MCP
 echo "Registering filesystem server..."
 claude mcp add filesystem -- node $MCP_LOCAL_PATH/filesystem/dist/index.js $CLAUDE_FILESYSTEM_PATH
 
-echo "Registering e2b server..."
-claude mcp add e2b -e E2B_API_KEY=$E2B_API_KEY -- node $MCP_LOCAL_PATH/e2b/dist/index.js
+if check_env_var "E2B_API_KEY"; then
+  echo "Registering e2b server..."
+  claude mcp add e2b -e E2B_API_KEY=$E2B_API_KEY -- node $MCP_LOCAL_PATH/e2b/dist/index.js
+fi
 
-echo "Registering linear server..."
-claude mcp add linear -e LINEAR_API_KEY=$LINEAR_API_KEY -- node $MCP_LOCAL_PATH/linear/dist/index.js
+if check_env_var "LINEAR_API_KEY"; then
+  echo "Registering linear server..."
+  claude mcp add linear -e LINEAR_API_KEY=$LINEAR_API_KEY -- node $MCP_LOCAL_PATH/linear/dist/index.js
+fi
 
-echo "Registering slack server..."
-claude mcp add slack -e SLACK_BOT_TOKEN=$SLACK_CLAUDE_BOT_TOKEN SLACK_TEAM_ID=$SLACK_TEAM_ID -- node $MCP_LOCAL_PATH/slack/dist/index.js
+if check_env_var "SLACK_CLAUDE_BOT_TOKEN" && check_env_var "SLACK_TEAM_ID"; then
+  echo "Registering slack server..."
+  claude mcp add slack -e SLACK_BOT_TOKEN=$SLACK_CLAUDE_BOT_TOKEN SLACK_TEAM_ID=$SLACK_TEAM_ID -- node $MCP_LOCAL_PATH/slack/dist/index.js
+fi
 
 # Register Docker MCP Server - Now from production location
 echo "Registering docker server..."
@@ -56,11 +79,19 @@ claude mcp add fetch -- uv --directory "${MCP_LOCAL_PATH}/fetch" run mcp-server-
 # claude mcp add sqlite -- uv --directory "${MCP_LOCAL_PATH}/sqlite" run mcp-server-sqlite --db-path $CLAUDE_SQLITE_PATH
 
 # Research MCP servers
-echo "Registering research-papers server..."
-claude mcp add research-papers -- node "${MCP_LOCAL_PATH}/research-papers/dist/index.js"
+if [ -d "${MCP_LOCAL_PATH}/research-papers/dist" ]; then
+  echo "Registering research-papers server..."
+  claude mcp add research-papers -- node "${MCP_LOCAL_PATH}/research-papers/dist/index.js"
+else
+  echo "⚠️ Warning: research-papers server not found at ${MCP_LOCAL_PATH}/research-papers/dist"
+fi
 
 # Register MCP Test Client
-echo "Registering mcp-test client..."
-claude mcp add mcp-test -- node "${MCP_LOCAL_PATH}/mcp-test-client/dist/index.js"
+if [ -d "${MCP_LOCAL_PATH}/mcp-test-client/dist" ]; then
+  echo "Registering mcp-test client..."
+  claude mcp add mcp-test -- node "${MCP_LOCAL_PATH}/mcp-test-client/dist/index.js"
+else
+  echo "⚠️ Warning: mcp-test client not found at ${MCP_LOCAL_PATH}/mcp-test-client/dist"
+fi
 
-echo "Local MCP servers registered."
+echo "Local MCP servers registered. Some servers may not be available if their required environment variables are not set."
